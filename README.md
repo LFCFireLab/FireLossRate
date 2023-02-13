@@ -5,5 +5,5 @@
 Run this command in R to install the  `FireLossRate` package from GitHub:
 
  ``` r
-devtools::install_github("vi-enne/FireLossRate")
+devtools::install_github("LFCFireLab/FireLossRate")
 ```
