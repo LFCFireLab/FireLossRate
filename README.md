@@ -1,7 +1,7 @@
 # FireLossRate
  R package for computing wildfire impacts on structures at the wildland urban interface.
  
- ## Intall package
+ ## Install package
 Run this command in R to install the  `FireLossRate` package from GitHub:
 
  ``` r
