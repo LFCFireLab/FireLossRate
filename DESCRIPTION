@@ -1,0 +1,6 @@
+Package: FireLossRate
+Type: Package
+Title: Compute wildfire impacts on structures at the wildland urban interface
+Version: 0.0.1.0
+RoxygenNote: 7.2.1
+Encoding: UTF-8
