@@ -35,8 +35,8 @@ computeLR <- function(fi,
   require(raster)
   require(ggplot2)
   require(ggnewscale)
-  require(beepr)
   require(data.table)
+  require(dplyr)
   
   # LRfactor = 4.94
   # LRexp = 0.34
@@ -47,7 +47,7 @@ computeLR <- function(fi,
   totalBuildings <- sum(buildingsPos$Sum_Count)
   
   if (is(fi, "RasterLayer")) {
-    print("Convert fi raster to vector")
+    # print("Convert fi raster to vector")
     fi <- rasterToPoints(fi, spatial = T)
     fi <- st_as_sf(fi)
   }
@@ -76,6 +76,7 @@ computeLR <- function(fi,
       stop("Wrong format for flame_arrival_time")
     }
     
+    colnames(flame_arrival_time)[1] <- "flame.arrival.time"
     fire_sp <- st_join(fi, flame_arrival_time)
   }
   
@@ -138,17 +139,16 @@ computeLR <- function(fi,
     (fire_sp$flame.arrival.time - 161) / 0.04166666666
   
   buildingsPosCentroid <- suppressWarnings(st_centroid(buildingsPos))
-
-  distFire <- st_distance(buildingsPosCentroid, fire_sp) #Distance Centroid to Border
-  # distFire <- st_distance(buildingsPos, fire_sp) #Distance Border to Border
   
-  units(distFire) <- NULL
-  distFire <- round(distFire, 2)
-  
-  # Compute all LRs for fires in the (maxDist)m radius, then select the highest LR
-  # Select highest FI in the 500m radius
-  
-  neighbors <- which(distFire < maxDist, arr.ind=T)
+  neighbors <- which(
+    st_is_within_distance(
+      buildingsPosCentroid, 
+      fire_sp, 
+      maxDist, 
+      sparse = FALSE
+    ), 
+    arr.ind = TRUE
+  )
   
   if (nrow(neighbors)==0) {
     exposedBuildings <- 0
@@ -170,10 +170,21 @@ computeLR <- function(fi,
     return(list(final = final, out = out))
   }
   
-  if(nrow(neighbors) > 1){
-    neighbors <- neighbors[order(neighbors[, "row"]),]
-  }
+  # if(nrow(neighbors) > 1){
+  #   neighbors <- neighbors[order(neighbors[, "row"]),]
+  # }
   
+  distFire <- st_distance(
+    buildingsPosCentroid[neighbors[, "row"],], 
+    fire_sp[neighbors[, "col"],],
+    by_element = TRUE,
+    which = "Euclidean"
+  )
+  
+  units(distFire) <- NULL
+  distFire <- round(distFire, 2)
+  dist <- distFire[order(neighbors[, "row"])]
+  neighbors <- neighbors[order(neighbors[, "row"]),, drop = FALSE]
   
   exposed <- unique(neighbors[, "row"])
   final <- buildingsPos[exposed,]
@@ -183,14 +194,11 @@ computeLR <- function(fi,
   
   eq1 <- LRfactor * fire_sp$fi ^ (LRexp)
   eq1[eq1 > 100] <- 100
-  
   eq1 <- cbind(col = closeFire,
                fi = fire_sp$fi,
                fat = fire_sp$flame.arrival.time,
                eq1)
-  
-  dist <- distFire[neighbors]
-  
+    
   eq2 <- NLRfactor * log(dist) + NLRcost
   eq2[is.infinite(eq2)] <- 1
   eq2 <- cbind(neighbors, eq2)
@@ -219,7 +227,7 @@ computeLR <- function(fi,
                                      )
                                    )))
   
-  final <- cbind(final, neighbors[,-1])
+  final <- dplyr::bind_cols(final, neighbors[,-1, drop = FALSE]) # Remove row column
   
   exposedBuildings <- sum(final$Sum_Count)
   lostBuildings <- round(sum(final$Sum_Count * final$LR / 100))
