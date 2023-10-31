@@ -33,10 +33,11 @@ computeLR <- function(fi,
 {
   require(sf)
   require(raster)
-  require(ggplot2)
-  require(ggnewscale)
+  # require(ggplot2)
+  # require(ggnewscale)
   require(data.table)
   require(dplyr)
+  require(terra)
   
   # LRfactor = 4.94
   # LRexp = 0.34
@@ -46,6 +47,11 @@ computeLR <- function(fi,
   buildingsPos <- buildings[buildings$Sum_Count > 0, ]
   totalBuildings <- sum(buildingsPos$Sum_Count)
   
+  if (is(fi, "SpatRaster")) {
+    # print("Convert fi raster to vector")
+    fi <- as.points(fi)
+    fi <- st_as_sf(fi)
+  }
   if (is(fi, "RasterLayer")) {
     # print("Convert fi raster to vector")
     fi <- rasterToPoints(fi, spatial = T)
@@ -64,6 +70,11 @@ computeLR <- function(fi,
     fire_sp <- fi
     fire_sp$flame.arrival.time <- 161
   } else{
+    if (is(flame_arrival_time, "SpatRaster")) {
+      # print("Convert fi raster to vector")
+      flame_arrival_time <- as.points(flame_arrival_time)
+      flame_arrival_time <- st_as_sf(flame_arrival_time)
+    }
     if (is(flame_arrival_time, "RasterLayer")) {
       flame_arrival_time <-
         rasterToPoints(flame_arrival_time, spatial = T)
@@ -134,7 +145,6 @@ computeLR <- function(fi,
     return(list(final = final, out = out))
   }
   
-  
   fire_sp$flame.arrival.time <-
     (fire_sp$flame.arrival.time - 161) / 0.04166666666
   
@@ -170,10 +180,6 @@ computeLR <- function(fi,
     return(list(final = final, out = out))
   }
   
-  # if(nrow(neighbors) > 1){
-  #   neighbors <- neighbors[order(neighbors[, "row"]),]
-  # }
-  
   distFire <- st_distance(
     buildingsPosCentroid[neighbors[, "row"],], 
     fire_sp[neighbors[, "col"],],
@@ -194,11 +200,12 @@ computeLR <- function(fi,
   
   eq1 <- LRfactor * fire_sp$fi ^ (LRexp)
   eq1[eq1 > 100] <- 100
+  
   eq1 <- cbind(col = closeFire,
                fi = fire_sp$fi,
                fat = fire_sp$flame.arrival.time,
                eq1)
-    
+  
   eq2 <- NLRfactor * log(dist) + NLRcost
   eq2[is.infinite(eq2)] <- 1
   eq2 <- cbind(neighbors, eq2)
