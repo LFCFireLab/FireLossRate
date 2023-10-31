@@ -25,6 +25,7 @@ createStructureGrid <- function(structures,
   require(sf)
   require(dplyr)
   require(raster)
+  require(terra)
   
   if (!(mode %in% c("maximal", "minimal"))) {
     stop('Mode accepts only "maximal" or "minimal"')
