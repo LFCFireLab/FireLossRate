@@ -61,23 +61,57 @@ buildFires <-
     fires <- fires[rowSums(is.na(fires)) < (n - 2), ]
     bi <- bi[rowSums(is.na(bi)) < (n - 2), ]
     
-    fires <-
-      gather(
-        fires,
-        !c(column, row),
-        key = variable,
-        value = fi,
-        na.rm = T
-      )
-    fires <- dplyr::select(fires,-variable)
-    
-    bi <-
-      gather(bi,
-             !c(column, row),
-             key = variable,
-             value = iter,
-             na.rm = T)
-    bi <- dplyr::select(bi,-variable)
+    if (method == 'fast') {
+      fires <-
+        gather(
+          fires,
+          !c(column, row),
+          key = variable,
+          value = fi,
+          na.rm = T
+        )
+      fires <- dplyr::select(fires,-variable)
+      fires <- fires[order(fires$column, fires$row),]
+      
+      bi <-
+        gather(bi,
+               !c(column, row),
+               key = variable,
+               value = iter,
+               na.rm = T)
+      bi <- dplyr::select(bi,-variable)
+    } else {
+      tempFires <- NULL
+      tempBI <- NULL
+      step <- 100
+      maxN <- nrow(bi)
+      ind <- seq(1,maxN,step)
+      
+      for(i in 1:length(ind)){
+        temp <- gather(
+          fires[ind[i]:min(maxN, ind[i] + step - 1),],
+          !c(column, row),
+          key = variable,
+          value = fi,
+          na.rm = T
+        )
+        temp <- dplyr::select(temp,-variable)
+        tempFires <- rbind(tempFires,temp)
+        
+        temp <- gather(
+          bi[ind[i]:min(maxN, ind[i] + step - 1),],
+          !c(column, row),
+          key = variable,
+          value = iter,
+          na.rm = T
+        )
+        temp <- dplyr::select(temp,-variable)
+        tempBI <- rbind(tempBI,temp)
+      }
+      
+      fires <- tempFires
+      bi <- tempBI
+    }
     
     return(cbind(fireID = bi$iter, fires))
   }
